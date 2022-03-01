@@ -103,6 +103,7 @@ async function do_quota_search({ isilon, params }) {
 async function do_quota_resize({ isilon, params }) {
     const path = params.shift();
     const size = params.shift();
+    let done = false;
     let quota;
     let bytes = 0;
 
@@ -114,10 +115,15 @@ async function do_quota_resize({ isilon, params }) {
         console.clear();
         try {
             if (!path.startsWith('/')) {
-                let quotas = await isilon.quotas.find({ enforced: true });
-                quota = await print_quotas({ quotas, filter: path, select: true });
+                quotas = await isilon.quotas.find({ enforced: true });
             } else {
-                quota = await isilon.quotas.find({ path: path })[0];
+                quotas = await isilon.quotas.find({ path: path });
+            }
+
+            quota = await print_quotas({ quotas, filter: path, select: true });
+
+            if (!quota) {
+                process.exit();
             }
 
             let payload = {
@@ -126,10 +132,6 @@ async function do_quota_resize({ isilon, params }) {
                     soft: quota.thresholds.soft,
                     advisory: quota.thresholds.advisory
                 }
-            }
-
-            if (!quota) {
-                process.exit();
             }
 
             let bytes = sizeToBytes(size);
@@ -147,7 +149,7 @@ async function do_quota_resize({ isilon, params }) {
         } catch (error) {
             throw error;
         }
-    } while (true);
+    } while (done === false);
 }
 
 async function do_quota_list({ isilon, params }) {
